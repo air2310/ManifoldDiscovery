@@ -1,0 +1,97 @@
+import numpy as np
+import pandas as pd
+from pathlib import Path
+import mne
+
+
+class MetaData:
+
+    # %% Metadata
+    n_sites = 60
+    n_electrodes = 59
+    n_subs = 28
+
+    # %% Directory structure
+    direct = {'dataroot': Path('Data/'), 'resultsroot': Path('Results/')}
+
+    # %% Feature coding for each stimulation location
+    # Create dictionary to host information
+    stim_dict = {'site_number': [], 'eccintricity': [], 'angle': []}
+
+    # loop through sites to assign properties
+    eccin = 0
+    for site in range(n_sites):
+        # set angle
+        if eccin == 0:
+            angle = np.mod(45 - 90*site, 360)
+        if eccin == 1:
+            angle = np.mod(67.5 - 45*(site-4), 360)
+        if eccin > 1:
+            angle = np.mod(75 - 30*np.mod(site, 12), 360)
+
+        # set properties
+        stim_dict['site_number'].append(site+1)  # site number
+        stim_dict['angle'].append(angle)  # site number
+        stim_dict['eccintricity'].append(eccin)  # eccintricity
+
+        # advance eccintricities
+        if np.isin(site+1, [4, 12, 24, 36, 48, 60]):
+            eccin += 1
+
+    # set visual fields
+    stim_dict['visfield_horz'] = (np.mod(stim_dict['angle'], 275) < 90).astype(int)
+    stim_dict['visfield_horz_str'] = np.array(['Left', 'Right'])[stim_dict['visfield_horz']]
+
+    stim_dict['visfield_vert'] = (np.array(stim_dict['angle']) < 180).astype(int)
+    stim_dict['visfield_vert_str'] = np.array(['Bottom', 'Top'])[stim_dict['visfield_horz']]
+
+    # get cardinal coordinates
+    stim_dict['xpos'] = (np.array(stim_dict['eccintricity'] ) + 1) * np.cos(np.deg2rad(stim_dict['angle']))
+    stim_dict['ypos'] = (np.array (stim_dict['eccintricity']) + 1) * np.sin(np.deg2rad(stim_dict['angle']))
+
+    # convert to pandas dataframe
+    stim_df = pd.DataFrame(stim_dict)
+
+    def get_eeginfo(self):  # Generate EEG info structure
+        # load raw data
+        fname = self.direct['dataroot'] / Path("Datasample/trialtest.mat")
+        epochs = mne.read_epochs_fieldtrip(fname, info=None, data_name='tmp',trialinfo_column=0)
+
+        # Create empty info structure
+        info = mne.create_info(epochs.info['ch_names'], epochs.info['sfreq'], ch_types='eeg')
+
+        return info
+
+    def geteeg(self):  # Load and store EEG data
+        # Preallocate
+        eegdat_dict = {'sub_id': [], 'site_id': [], 'ch_name': [], 'time (s)': [], 'EEG amp. (µV)': []}
+        info = self.get_eeginfo()
+
+        # loop through subjects
+        for sub in range(self.n_subs):
+            self.direct['datasub'] = self.direct['dataroot'] / Path('S' + str(sub+1) + '/')
+
+            # loop through sites
+            for site in range(self.n_sites):
+                # load data
+                fname = self.direct['datasub'] / Path("data_s" + str(sub + 1) + '_site' + str(site + 1) + ".mat")
+                epochs = mne.read_epochs_fieldtrip(fname, info=info, data_name='dat',trialinfo_column=0)
+
+                # Baseline correct
+                epochs = epochs.apply_baseline(baseline=(-0.1,0))
+
+                # Get average
+                evoked = epochs.average()
+
+                # store data in a big dictionary
+                n_times = len(evoked.times.astype(list))
+                tmp = evoked.get_data()
+                for ii_elec, electrode in enumerate(info.ch_names):
+                    eegdat_dict['time (s)'].extend(evoked.times.astype(list))
+                    eegdat_dict['ch_name'].extend([electrode]*n_times)
+                    eegdat_dict['sub_id'].extend(['sub' + str(sub+1)]*n_times)
+                    eegdat_dict['site_id'].extend([(site+1)]*n_times)
+                    eegdat_dict['EEG amp. (µV)'].extend(tmp[ii_elec,:].astype(list))
+
+        # Convert stored trials to dataframe
+        eegdat_df = pd.DataFrame(eegdat_dict)

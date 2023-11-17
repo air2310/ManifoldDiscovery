@@ -13,6 +13,7 @@ class MetaData:
 
     # %% Directory structure
     direct = {'dataroot': Path('Data/'), 'resultsroot': Path('Results/')}
+    files = {'EEGprocessed': direct['dataroot'] / 'EEGdataframe.pkl'}
 
     # %% Feature coding for each stimulation location
     # Create dictionary to host information
@@ -52,6 +53,27 @@ class MetaData:
     # convert to pandas dataframe
     stim_df = pd.DataFrame(stim_dict)
 
+
+    # Organise some plotting groups we might want to plot by
+    horz_groups = {'-3': [57, 58, 45, 46], '-2': [34, 22, 33, 21], '-1': [11, 4, 10, 3],
+                   '1': [1, 6, 2, 7], '2': [15, 27, 16, 28], '3': [39, 51, 40, 52]}
+
+    vert_groups = {'-3': [55, 54, 43, 42], '-2': [31, 30, 19, 18], '-1': [9, 8, 3, 2],
+                   '1': [1, 4, 5, 12], '2': [24, 13, 36, 25], '3': [48, 37, 60, 49]}
+
+    # assign horizontal groups
+    stim_df['horz_group'] = 0
+    for group in horz_groups:
+        for index in horz_groups[group]:
+            stim_df.loc[stim_df.site_number == index, 'horz_group'] = int(group)
+
+    # assign vertical groups
+    stim_df['vert_group'] = 0
+    for group in vert_groups:
+        for index in vert_groups[group]:
+            stim_df.loc[stim_df.site_number == index, 'vert_group'] = int(group)
+
+
     def get_eeginfo(self):  # Generate EEG info structure
         # load raw data
         fname = self.direct['dataroot'] / Path("Datasample/trialtest.mat")
@@ -60,9 +82,13 @@ class MetaData:
         # Create empty info structure
         info = mne.create_info(epochs.info['ch_names'], epochs.info['sfreq'], ch_types='eeg')
 
+        # Set 10-20 montage
+        montage2use = mne.channels.make_standard_montage('standard_1020')  # mne.channels.get_builtin_montages()
+        info = info.set_montage(montage2use)
+
         return info
 
-    def geteeg(self):  # Load and store EEG data
+    def get_eeg(self):  # Load and store EEG data
         # Preallocate
         eegdat_dict = {'sub_id': [], 'site_id': [], 'ch_name': [], 'time (s)': [], 'EEG amp. (µV)': []}
         info = self.get_eeginfo()
@@ -95,3 +121,21 @@ class MetaData:
 
         # Convert stored trials to dataframe
         eegdat_df = pd.DataFrame(eegdat_dict)
+
+        # assign to plots to align with our stimulus dataframe
+        # assign horizontal groups
+        eegdat_df['horz_group'] = 0
+        for group in self.horz_groups:
+            for index in self.horz_groups[group]:
+                eegdat_df.loc[eegdat_df.site_id == index, 'horz_group'] = int(group)
+
+        # assign vertical groups
+        eegdat_df['vert_group'] = 0
+        for group in self.vert_groups:
+            for index in self.vert_groups[group]:
+                eegdat_df.loc[eegdat_df.site_id == index, 'vert_group'] = int(group)
+
+        # save data
+        eegdat_df.to_pickle(self.files['EEGprocessed'])
+
+        return eegdat_df

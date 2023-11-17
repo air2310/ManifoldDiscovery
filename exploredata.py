@@ -193,7 +193,6 @@ for stim_group in [ 'horz_group','vert_group']: #'vert_group'
 # %% Step 2 - Different Horizontal and vertical groups topos
 
 # Plot Topos for the two timed positions
-
 for stim_group in [ 'vert_group', 'horz_group']: #'vert_group'
     if stim_group == 'horz_group':
         timepoints = [0.175] # horz

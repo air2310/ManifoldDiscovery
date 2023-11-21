@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import mne
+from matplotlib.colors import ListedColormap
 
 def radialcoords(sets):
     stim_df = sets.stim_df
@@ -116,3 +117,76 @@ def topos(sets, eegdat_df, info):
         plt.suptitle('GroupTopos' + stim_group)
         plt.savefig(sets.direct['resultsroot'] / Path('GroupTopos' + stim_group + '.png'))
     #RdYlGn, RdYlBu,  Spectral, coolwarm, RdBu, PRGn, PuOr,
+
+def behave_saliances(U_df, sets):
+    if sets.nsubs>1:
+        plt.figure()
+        sns.barplot(data=U_df, x='Measure', y=0, hue='SUB')
+    else:
+        fig, ax = plt.subplots(1, len(U_df), layout='tight', figsize = (12,4), sharey= True)
+        for component in range(len(U_df)):
+            sns.barplot(data=U_df, x='Measure', y=component, ax=ax[component])
+            ax[component].set_title('component: ' + str(component))
+
+def get_locationcolmap(stim_df):
+    # create new colour map
+    cols = []
+    for site in stim_df.index:
+        # set colours
+        if (stim_df.angle[site] > 0) & (stim_df.angle[site] < 90): col = plt.colormaps['Purples']((stim_df.eccintricity[site]+1)/7)
+        if (stim_df.angle[site] > 90) & (stim_df.angle[site] < 180): col = plt.colormaps['Blues']((stim_df.eccintricity[site]+1)/7)
+        if (stim_df.angle[site] > 180) & (stim_df.angle[site] < 270):col = plt.colormaps['YlOrBr']((stim_df.eccintricity[site]+1)/7)
+        if (stim_df.angle[site] > 270) & (stim_df.angle[site] < 360): col = plt.colormaps['Reds']((stim_df.eccintricity[site]+1)/7)
+        cols.append(col)
+
+    newcmp = ListedColormap(cols)
+    return newcmp
+def latentspace_2d(sets, Lx):
+    stim_df = sets.stim_df
+    newcmp = get_locationcolmap(stim_df)
+
+    # set index
+    subidx = np.arange(0,60)
+
+    # plot
+    fig, ax = plt.subplots(1,3, figsize=(10,4), layout='tight')
+    ax[0].scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.eccintricity, cmap="coolwarm", s=50)
+    ax[0].set_title('eccintricity')
+
+    ax[1].scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.angle, cmap='coolwarm', s=50)
+    ax[1].set_title('angle')
+
+    plt.scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.site_number, cmap=newcmp, s=50)
+    ax[2].set_title('stimid')
+
+    [ax[a].set_xlabel('Latent X1') for a in range(3)]
+    [ax[a].set_ylabel('Latent X2') for a in range(3)]
+
+
+    plt.suptitle('Latent variables X')
+    plt.savefig(sets.direct['resultsroot'] / Path('PLSC Latent variables.png'))
+
+def latentspace_3d(sets, Lx):
+    stim_df = sets.stim_df
+    newcmp = get_locationcolmap(stim_df)
+
+    # %% Visualise latent variables
+    subidx = np.arange(0,60)
+    # subidx = np.arange(60,120)
+    # subidx = np.arange(120,180)
+    fig, ax = plt.subplots(1,4,subplot_kw={'projection':'3d'}, figsize=(15,5))
+    ax[0].scatter(Lx[subidx, 0],Lx[subidx, 1],Lx[subidx, 2], c=stim_df.xpos, cmap='coolwarm', s=50)
+    ax[0].set_title('xpos')
+
+    ax[1].scatter(Lx[subidx, 0],Lx[subidx, 1],Lx[subidx, 2], c=stim_df.ypos, cmap='coolwarm', s=50)
+    ax[1].set_title('ypos')
+
+    ax[2].scatter(Lx[subidx, 0],Lx[subidx, 1],Lx[subidx, 2], c=stim_df.eccintricity, cmap='coolwarm', s=50)
+    ax[2].set_title('Eccintricity')
+
+    ax[3].scatter(Lx[subidx, 0],Lx[subidx, 1],Lx[subidx, 2], c=stim_df.site_number, cmap=newcmp, s=50)
+    ax[3].set_title('SiteID')
+
+    plt.suptitle('Latent variables X')
+    plt.savefig(sets.direct['resultsroot'] / Path('PLSC Latent variables 3d.png'))
+

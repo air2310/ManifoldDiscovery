@@ -389,7 +389,7 @@ for sub in range(nsubs):
     Ly.append(np.matmul(Y_norm[sub], U[idx, :]))
 Ly = np.squeeze(np.concatenate(Ly, axis=1))
 
-np.savez(direct['resultsroot'] / Path('SVDcomponents.npz'), U=U, D=D,V=V, Lx=Lx, stim_df=stim_df)
+# np.savez(direct['resultsroot'] / Path('SVDcomponents.npz'), U=U, D=D,V=V, Lx=Lx, stim_df=stim_df)
 # %% Visualise latent variables
 
 # create new colour map

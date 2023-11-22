@@ -154,16 +154,19 @@ class MetaData:
         eeg_resampled = eeg_resampled.reset_index()
 
         # group
-        grouper = True
         if grouper:
             eeg_resampled = eeg_resampled.groupby(['site_id', 'ch_name', 'time (s)'])['EEG amp. (µV)'].mean().reset_index()
             eeg_resampled['sub_id'] = 'sub1'
             nsubs = 1
+
+            # save data
+            eeg_resampled.to_pickle(self.direct['resultsroot'] / Path('eegretinotopicmappingdf.pkl'))
         else:
             nsubs = 28
+            # save data
+            eeg_resampled.to_pickle(self.direct['resultsroot'] / Path('eegretinotopicmappingdf_ungrouped.pkl'))
 
-        # save data
-        eeg_resampled.to_pickle(self.direct['resultsroot'] / Path('eegretinotopicmappingdf.pkl'))
+
 
         return eeg_resampled, nsubs
 

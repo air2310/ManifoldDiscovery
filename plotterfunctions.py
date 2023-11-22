@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import mne
 from matplotlib.colors import ListedColormap
+import matplotlib.animation
+import functools
 
 def radialcoords(sets):
     stim_df = sets.stim_df
@@ -189,4 +191,64 @@ def latentspace_3d(sets, Lx):
 
     plt.suptitle('Latent variables X')
     plt.savefig(sets.direct['resultsroot'] / Path('PLSC Latent variables 3d.png'))
+
+def latentspaceERPs(sets, eeg_resampled, V):
+
+
+    eeg_V = eeg_resampled.loc[(eeg_resampled['sub_id'] == 'sub1') & (eeg_resampled.site_id == 1), :].copy()
+    for latent in range(V.shape[1]):
+        eeg_V['V' + str(latent)] = V[:, latent]
+    eeg_V['Time (s)'] = eeg_V['time (s)'].dt.total_seconds()
+
+    plt.figure()
+    sns.lineplot(eeg_V, x='Time (s)', y='V0', hue='ch_name')
+    plt.title('V0')
+
+    plt.figure()
+    sns.lineplot(eeg_V, x='Time (s)', y='V1', hue='ch_name')
+    plt.title('V1')
+
+    plt.figure()
+    sns.lineplot(eeg_V, x='Time (s)', y='V2', hue='ch_name')
+    plt.title('V2')
+
+    plt.figure()
+    sns.lineplot(eeg_V, x='Time (s)', y='EEG amp. (µV)', hue='ch_name')
+    plt.title('EEG amp. (µV)')
+
+    return eeg_V
+
+
+def drawtopos(start, ax, eeg_V, info, component, duration):
+    stop = start + duration
+    datuse = eeg_V.loc[(eeg_V['Time (s)'] > start) & (eeg_V['Time (s)'] < stop), :].groupby('ch_name')[['V0', 'V1', 'V2', 'Time (s)']].mean().reset_index()
+
+    # plot ERP
+    # ax[0].axvline(x=start, ymin=0, ymax=1, color='k')
+
+    # plot topomap
+    im, cm = mne.viz.plot_topomap(datuse[component], info, ch_type='eeg', sphere = 'eeglab', cmap='inferno', axes=ax[1], contours=False,vlim=vlim)
+    ax[1].set_title(str(round(start*100)/100) + 's')
+
+
+def animatecomponents(eeg_V, info, sets, component='V0'):
+    duration = 0.01
+
+    vlim = [eeg_V[component].min(), eeg_V[component].max()]
+
+
+    # initialise plot
+    fig,ax = plt.subplots(1,2,figsize=(10,5))
+
+    plt.suptitle(component)
+    sns.lineplot(eeg_V, x='Time (s)', y=component, hue='ch_name',ax=ax[0])
+    ax[0].get_legend().remove()
+    [ax[0].spines[pos].set_visible(False) for pos in ['top', 'right']]
+
+    # animate
+    anim = matplotlib.animation.FuncAnimation(fig, functools.partial(drawtopos, ax=ax, eeg_V=eeg_V, info=info, component=component, duration=duration),
+            frames=np.arange(0, 0.5, duration), interval=200, repeat=False).save(sets.direct['resultsroot'] /
+            Path(component + 'plsccomponentvid.mp4'), fps=5)
+
+
 

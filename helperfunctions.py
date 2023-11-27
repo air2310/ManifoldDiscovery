@@ -88,13 +88,13 @@ class MetaData:
 
         return info
 
-    def get_eeg(self):  # Load and store EEG data
+    def get_eeg(self, subs=range(28), n_epochs_select='max'):  # Load and store EEG data
         # Preallocate
         eegdat_dict = {'sub_id': [], 'site_id': [], 'ch_name': [], 'time (s)': [], 'EEG amp. (µV)': []}
         info = self.get_eeginfo()
 
         # loop through subjects
-        for sub in range(self.n_subs):
+        for sub in subs:
             self.direct['datasub'] = self.direct['dataroot'] / Path('S' + str(sub+1) + '/')
 
             # loop through sites
@@ -104,10 +104,14 @@ class MetaData:
                 epochs = mne.read_epochs_fieldtrip(fname, info=info, data_name='dat',trialinfo_column=0)
 
                 # Baseline correct
-                epochs = epochs.apply_baseline(baseline=(-0.1,0))
+                epochs = epochs.apply_baseline(baseline=(-0.1, 0))
 
                 # Get average
-                evoked = epochs.average()
+                if n_epochs_select=='max':
+                    evoked = epochs.average()
+                else:
+                    epochs_select = np.random.choice(len(epochs), n_epochs_select)
+                    evoked = epochs[epochs_select].average()
 
                 # store data in a big dictionary
                 n_times = len(evoked.times.astype(list))
@@ -202,6 +206,7 @@ class PLSC:
 
     def normalise(self, X, Y, nsubs, sets):
         X_norm, Y_norm = [],[]
+        normstats = {'X_mean':[], 'X_ss': []}
         for sub in range(nsubs):
             print('Normalising data for subject: ' + str(sub))
 
@@ -210,16 +215,30 @@ class PLSC:
 
             ## Zero mean each column
             [x_n, y_n] = [dat - np.tile(dat.mean(axis=0).T, (sets.n_sites, 1)) for dat in [x_n, y_n]]
+            normstats['X_mean'].append(x_n.mean(axis=0))
 
             # divide by sqrt of sum of squares
             [x_ss, y_ss] = [np.sqrt(np.sum(np.square(dat), axis=0)) for dat in [x_n, y_n]]
             [x_n, y_n] = [dat/np.tile(ss.T, (sets.n_sites, 1)) for dat, ss in zip([x_n, y_n], [x_ss, y_ss])]
+            normstats['X_ss'].append(x_ss)
 
             # Store
             X_norm.append(x_n)
             Y_norm.append(y_n)
 
-        return X_norm, Y_norm
+
+        return X_norm, Y_norm, normstats
+
+    def normalise_Wnormstats(self, X, sets, normstats):
+
+        x_n = np.squeeze(X[0])  # get data
+        x_n = x_n - np.tile(normstats['X_mean'][0].T, (sets.n_sites, 1))  ## Zero mean each column
+        x_n = x_n / np.tile(normstats['X_ss'][0].T, (sets.n_sites, 1)) # divide by sqrt of sum of squares
+
+        # Store
+        X_norm2 = x_n
+
+        return X_norm2
 
     def compute_covariance(self, X_norm, Y_norm, sets, nsubs):
         R=[]

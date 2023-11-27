@@ -152,11 +152,11 @@ def latentspace_2d(sets, Lx):
 
     # plot
     fig, ax = plt.subplots(1,3, figsize=(10,4), layout='tight')
-    ax[0].scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.eccintricity, cmap="coolwarm", s=50)
-    ax[0].set_title('eccintricity')
+    ax[0].scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.xpos, cmap="coolwarm", s=50)
+    ax[0].set_title('xpos')
 
-    ax[1].scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.angle, cmap='coolwarm', s=50)
-    ax[1].set_title('angle')
+    ax[1].scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.ypos, cmap='coolwarm', s=50)
+    ax[1].set_title('ypos')
 
     plt.scatter(Lx[subidx, 1],Lx[subidx, 0],c=stim_df.site_number, cmap=newcmp, s=50)
     ax[2].set_title('stimid')
@@ -167,6 +167,36 @@ def latentspace_2d(sets, Lx):
 
     plt.suptitle('Latent variables X')
     plt.savefig(sets.direct['resultsroot'] / Path('PLSC Latent variables.png'))
+
+def latentspace_2dLO(sets, Lx,Lx_lo):
+    stim_df = sets.stim_df
+    newcmp = get_locationcolmap(stim_df)
+
+    # plot
+    fig, ax = plt.subplots(1,4, figsize=(10,4), layout='tight')
+    ax[0].scatter(Lx[:, 1],Lx[:, 0],c=stim_df.xpos, cmap="coolwarm", s=50)
+    ax[0].scatter(Lx_lo[:, 1],Lx_lo[:, 0],c=stim_df.xpos, cmap="coolwarm", s=50,marker='*')
+    ax[0].set_title('xpos')
+
+    ax[1].scatter(Lx[:, 1],Lx[:, 0],c=stim_df.ypos, cmap='coolwarm', s=50)
+    ax[1].scatter(Lx_lo[:, 1],Lx_lo[:, 0],c=stim_df.ypos, cmap='coolwarm', s=50,marker='*')
+    ax[1].set_title('ypos')
+
+    ax[2].scatter(Lx[:, 1],Lx[:, 0],c=stim_df.eccintricity, cmap='coolwarm', s=50)
+    ax[2].scatter(Lx_lo[:, 1],Lx_lo[:, 0],c=stim_df.eccintricity, cmap='coolwarm', s=50,marker='*')
+    ax[2].set_title('eccintricity')
+
+    ax[3].scatter(Lx[:, 1],Lx[:, 0],c=stim_df.site_number, cmap=newcmp, s=50)
+    ax[3].scatter(Lx_lo[:, 1],Lx_lo[:, 0],c=stim_df.site_number, cmap=newcmp, s=50,marker='*')
+    ax[3].set_title('stimid')
+
+    [ax[a].set_xlabel('Latent X1') for a in range(4)]
+    [ax[a].set_ylabel('Latent X2') for a in range(4)]
+
+
+    plt.suptitle('Latent variables X')
+    # plt.savefig(sets.direct['resultsroot'] / Path('PLSC Latent variables crossval.png'))
+
 
 def latentspace_3d(sets, Lx):
     stim_df = sets.stim_df

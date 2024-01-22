@@ -6,21 +6,22 @@ import pandas as pd
 import numpy as np
 from sklearn.neighbors import KNeighborsClassifier
 
+%matplotlib qt
 # %% Plotting settings
 plt.ion() # set plots to be non-blocking. (if run in terminal)
 # %matplotlib qt # set matplotlib backend (if run in notebook)
 
 # %% Run settings
 # raw eeg
-loadEEGfresh = False
-visualiseEEG = False
+loadEEGfresh = True
+visualiseEEG = True
 loadEEGresampled_fresh = False
 
 # full group
 run_fullgroup = False
 
 # leave one out cross validation
-run_crossvalidation = True
+run_crossvalidation = False
 
 # %% Get metadata
 sets = helper.MetaData()
@@ -40,9 +41,9 @@ if visualiseEEG:
     plot.topos(sets, eegdat_df, info)
 
 # %% Run cross validation
+# set behavioural variables
+str_behave = ['eccintricity', 'xpos', 'ypos']  # ['angle', 'visfield_horz', 'visfield_vert']
 if run_crossvalidation:
-    # %% set behavioural variables
-    str_behave = ['eccintricity', 'xpos', 'ypos']  # ['angle', 'visfield_horz', 'visfield_vert']
 
     # %% get resampled variables
     if loadEEGresampled_fresh:
@@ -57,10 +58,11 @@ if run_crossvalidation:
     classification_acc = {metric: [] for metric in metrics}
     classification_acc['sub_id'] = []
     classification_acc['n_epoch_select'] = []
+    classification_acc['distance'] = []
     distances = np.empty((sets.n_sites, sets.n_subs))
 
-    for n_epochs_select in [1,2,4,8,16,32,'max']:
-        for sub in range(sets.n_subs):
+    for n_epochs_select in [1, 2, 4, 8, 16, 32, 'max']:
+        for sub in np.arange(sets.n_subs):
             subexclude = 'sub' + str(sub+1)
 
             # segment
@@ -117,6 +119,8 @@ if run_crossvalidation:
             #classify
             classification_acc['sub_id'].append(subexclude)
             classification_acc['n_epoch_select'].append(n_epochs_select)
+            classification_acc['distance'].append(np.mean(distance))
+
             for metric in metrics:
                 neigh = KNeighborsClassifier(n_neighbors=4)
                 neigh.fit(Lx, sets.stim_df[metric])
@@ -126,6 +130,7 @@ if run_crossvalidation:
             if n_epochs_select == 'max':
                 classification_acc['sub_id'].append(subexclude)
                 classification_acc['n_epoch_select'].append('randombaseline')
+
                 for metric in metrics:
                     neigh = KNeighborsClassifier(n_neighbors=4)
                     neigh.fit(Lx, sets.stim_df[metric])
@@ -137,18 +142,28 @@ if run_crossvalidation:
 
                     classification_acc[metric].append(np.mean(score))
 
-            # %% Visualise latent vars
+                score = Lx - Lx_lo
+                classification_acc['distance'].append(np.mean(np.sum(np.square(score),1)))
+
+            # Visualise latent vars
             sets.nsubs = nsubs
             plot.latentspace_2dLO(sets, Lx,Lx_lo)
 
-    # %%examine group data
-    classif_pd = pd.DataFrame(classification_acc)
-    classif_pd = pd.melt(classif_pd, id_vars=['sub_id', 'n_epoch_select'], value_name='Accuracy')
+    for key in classification_acc:
+        print(key + str(len(classification_acc[key])))
 
-    import seaborn as sns
-    plt.figure(figsize=(14,6))
-    sns.barplot(data=classif_pd, x='variable', y='Accuracy', hue='n_epoch_select', palette=sns.color_palette("husl", 8))
-    plt.savefig(sets.direct['resultsroot'] / 'Accuracy by cellsize.png')
+    # save classification acc
+    classif_pd = pd.DataFrame(classification_acc)
+    classif_pd.to_pickle(sets.direct['resultsroot'] / 'crossvalacc.pkl')
+
+else:
+    classif_pd = pd.read_pickle(sets.direct['resultsroot'] / 'crossvalacc.pkl')
+
+
+
+# %% examine group data
+
+plot.crossvalidation_metrics(classif_pd, sets)
 
 # %% Prepare data for plsc
 if run_fullgroup:

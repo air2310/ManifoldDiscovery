@@ -91,7 +91,7 @@ def topos(sets, eegdat_df, info):
             colormap = 'viridis'
 
         # get corrected timepoints
-        times = eegdat_df['time (s)'].groupby('time (s)').mean().reset_index()
+        times = eegdat_df.groupby('time (s)')['EEG amp. (µV)'].mean().reset_index()['time (s)']
 
         timepoints_use = []
         for tt, time in enumerate (timepoints):
@@ -280,5 +280,52 @@ def animatecomponents(eeg_V, info, sets, component='V0'):
             frames=np.arange(0, 0.5, duration), interval=200, repeat=False).save(sets.direct['resultsroot'] /
             Path(component + 'plsccomponentvid.mp4'), fps=5)
 
+def crossvalidation_metrics(classif_pd, sets):
 
+
+    classif_pd2 = pd.melt(classif_pd, id_vars=['sub_id', 'n_epoch_select'], value_name='Accuracy')
+    classif_pd2 = classif_pd2.loc[~(classif_pd2['variable']=='distance'), :]
+
+    # plot distance metrics
+    plt.figure(figsize=(8,6))
+    ax = sns.barplot(data=classif_pd, x='n_epoch_select', y='distance', palette=sns.color_palette("husl", 8))
+    [ax.spines[pos].set_visible(False) for pos in ['top', 'right']]
+    plt.xlabel('Number of Epochs in ERP')
+    plt.ylabel('Mean latent distance from correct stim. loc.')
+    plt.title('Classification Cross-Validation Distance')
+    plt.savefig(sets.direct['resultsroot'] / 'Distance by cellsize.png')
+
+    #lineplot
+    plt.figure(figsize=(8,6))
+    classif_pdline = classif_pd.copy()
+    classif_pdline.loc[classif_pdline.n_epoch_select=='max', 'n_epoch_select'] = 64
+    classif_pdline = classif_pdline.loc[~(classif_pdline['n_epoch_select']=='randombaseline'), :]
+    ax = sns.lineplot(data= classif_pdline, x='n_epoch_select', y='distance', palette=sns.color_palette("husl", 8), markers='o')
+    [ax.spines[pos].set_visible(False) for pos in ['top', 'right']]
+    plt.xlabel('Number of Epochs in ERP')
+    plt.ylabel('Mean latent distance from correct stim. loc.')
+    plt.title('Classification Cross-Validation Distance')
+    plt.savefig(sets.direct['resultsroot'] / 'Distance by cellsize line.png')
+    plt.savefig(sets.direct['resultsroot'] / 'Distance by cellsize line.eps')
+
+    # classification acc
+    plt.figure(figsize=(14,6))
+    ax=sns.barplot(data=classif_pd2, x='variable', y='Accuracy', hue='n_epoch_select', palette=sns.color_palette("husl", 8))
+    [ax.spines[pos].set_visible(False) for pos in ['top', 'right']]
+
+    plt.title('Classification Cross-Validation Accuracy')
+    plt.savefig(sets.direct['resultsroot'] / 'Accuracy by cellsize.png')
+    plt.savefig(sets.direct['resultsroot'] / 'Accuracy by cellsize.eps')
+
+    # without random baseline
+    classif_pd2 = classif_pd2.loc[~(classif_pd2['n_epoch_select']=='randombaseline'), :]
+
+
+    plt.figure(figsize=(14,6))
+    ax=sns.barplot(data=classif_pd2, x='variable', y='Accuracy', hue='n_epoch_select', palette=sns.color_palette("husl", 8))
+    [ax.spines[pos].set_visible(False) for pos in ['top', 'right']]
+
+    plt.title('Classification Cross-Validation Accuracy')
+    plt.savefig(sets.direct['resultsroot'] / 'Accuracy by cellsize norand.png')
+    plt.savefig(sets.direct['resultsroot'] / 'Accuracy by cellsize norand.eps')
 
